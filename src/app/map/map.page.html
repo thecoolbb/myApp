@@ -1,10 +1,14 @@
 <ion-header>
   <ion-toolbar>
     <ion-title>你所在的城市:{{localCityName}}</ion-title>
+    <ion-buttons slot="start">
+      <ion-button color="primary" routerLink="/tab1" ng-if=''>登陆</ion-button>
+      <ion-button ng-if='false'>{{username}}</ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content padding>
   <div #map_container id="map_container"></div>
-  
+  <!-- <ion-button color="primary" routerLink="/tabs"> 跳转到地图</ion-button> -->
 </ion-content>

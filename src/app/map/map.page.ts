@@ -1,5 +1,9 @@
 import { Component, OnInit, ViewChild, ElementRef} from '@angular/core';
 import { Geolocation } from '@ionic-native/geolocation/ngx';
+import { Gyroscope, GyroscopeOrientation, GyroscopeOptions } from '@ionic-native/gyroscope/ngx';
+import { SensorsOriginal, TYPE_SENSOR, Sensors} from '@ionic-native/sensors';
+import {DeviceMotionOriginal, DeviceMotionAccelerationData} from '@ionic-native/device-motion'
+import {DeviceOrientationOriginal, DeviceOrientationCompassHeading} from '@ionic-native/device-orientation'
 import { NavController, AlertController} from "@ionic/angular";
 declare var BMap;
 declare var AMapLib;
@@ -26,6 +30,8 @@ export class MapPage implements OnInit {
   marker: any;
   //实时定位对象
   sbuscription: any;
+  //控制实时定位对象
+  subscription: any;
   //当地Icon
   locationIcon: any;
   //点击位置的对象
@@ -48,10 +54,31 @@ export class MapPage implements OnInit {
   walkingLength:null;
   //位置表示
   address: '';
+  //x轴上的磁场
+  xOritention: any;
+  oritention: any;
+  //sensors
+  //一些对象
+  deviceMotion: DeviceMotionOriginal;
+  deviceOrientation: DeviceOrientationOriginal;
+  sensor: SensorsOriginal;
+  //各坐标的旋转角度
+  xx: any;
+  yy: any;
+  zz: any;
+  tt: any;
+  aa: any;
+  bb: any;
+  cc: any;
+  dd: any;
+  mm: any;
+  nn: any;
+  pp: any;
+  qq: any;
   @ViewChild('map_container') map_container: ElementRef;
 
   //构造函数
-  constructor( private geolocation: Geolocation) {
+  constructor(private geolocation: Geolocation, private gyroscope: Gyroscope) {
     //此处请自行放置一个icon文件到 assets/icon目录中
     //将该图标封装到百度地图中
     this.myIcon = new BMap.Icon("assets/icon/position.png", new BMap.Size(15, 22));
@@ -93,7 +120,6 @@ export class MapPage implements OnInit {
     }
     var geolocationControl = new BMap.GeolocationControl(option);
     // //设置地图显示的城市
-    console.log(1111);
     geolocationControl.addEventListener("locationSuccess", function (e) {
       // 定位成功事件
       var address = "";
@@ -101,7 +127,6 @@ export class MapPage implements OnInit {
         vm.map.removeOverlay(vm.previousMarker);
       }
       vm.previousMarker = e.marker;
-      console.log(e);
       vm.timePoint = new BMap.Point(e.point.lng, e.point.lat); 
       vm.searchNearby();
       //address += e.addressComponent.province;
@@ -113,12 +138,56 @@ export class MapPage implements OnInit {
     });
     this.map.addControl(geolocationControl);
     this.getLocation();
+    // this.getSensors();
+    // this.getGyrosocpe();
   }
 
   //创建infoWindow
   createInfoWindow(){
     
   }
+
+  //传感器
+  getSensors(){
+    Sensors.enableSensor(TYPE_SENSOR.MAGNETIC_FIELD_UNCALIBRATED);
+    this.xOritention = Sensors.getState();
+    console.log(this.xOritention);
+  }
+  //陀螺仪
+  getGyrosocpe(){
+    let options: GyroscopeOptions = {
+      frequency: 1
+    }
+    //陀螺仪的获取
+    this.gyroscope.getCurrent(options)
+    .then((orientation: GyroscopeOrientation) => {
+      this.xx = "orien-x" + orientation.x;
+      this.yy = "orien-y" + orientation.y;
+      this.zz = "orien-z" + orientation.z;
+      this.tt = "orien-tstmp" + orientation.timestamp;
+    });
+    //陀螺仪监控
+    this.gyroscope.watch()
+      .subscribe((orientation:GyroscopeOrientation)=>{
+        console.log(orientation.x, orientation.y, orientation.z, orientation.timestamp);
+      });
+    this.deviceMotion.getCurrentAcceleration().then((acceleration:DeviceMotionAccelerationData)=>{
+      this.aa = "acc-x:" + acceleration.x;
+      this.bb = "acc-y:" + acceleration.y;
+      this.cc = "acc-z:" + acceleration.z;
+      this.dd = "acc-tstmp:" + acceleration.timestamp;
+    },
+    (error: any)=>console.log(error))
+    this.deviceOrientation.getCurrentHeading().then(
+      (data: DeviceOrientationCompassHeading)=>{
+        this.mm = "trueH:" + data.trueHeading;
+        this.nn = "magH:" + data.magneticHeading;
+        this.pp = "HA:" + data.headingAccuracy;
+        this.qq = "tsmp:" + data.timestamp;
+      }
+    );
+  }
+
   //搜索附近厕所
   searchNearby(){
     var vm = this;
@@ -130,7 +199,7 @@ export class MapPage implements OnInit {
     var local = new BMap.LocalSearch(vm.map, {
       renderOptions: { map: vm.map, autoViewport: true, selectFirstResult: false }, onSearchComplete: function (result) {
         let location;
-        console.log(result);
+        vm.localCityName = result.city;
         for (let i = 0; i < result.Ar.length; i++) {
           location = new BMap.Point(result.Ar[i].point.lng, result.Ar[i].point.lat);
           let marker = new BMap.Marker(location, { icon: vm.myToilet });
@@ -156,7 +225,6 @@ export class MapPage implements OnInit {
               // vm.map.closeInfoWindow();
               marker.openInfoWindow(vm.infoWindow);
             });
-            console.log('实现步行曲线');
             // vm.map.addEventListener('click', function () {
             //   vm.map.closeInfoWindow();
             //   vm.map.removeEventListener('click');
@@ -179,6 +247,7 @@ export class MapPage implements OnInit {
     this.geolocation.getCurrentPosition().then((resp) => {
       if (resp && resp.coords) {
         let locationPoint = new BMap.Point(resp.coords.longitude, resp.coords.latitude);
+        vm.timePoint = locationPoint;
         let convertor = new BMap.Convertor();
         let pointArr = [];
         pointArr.push(locationPoint);
@@ -189,25 +258,22 @@ export class MapPage implements OnInit {
               vm.map.removeOverlay(vm.previousMarker);
             }
             let marker = vm.marker = new BMap.Marker(data.points[0], { icon: vm.myIcon });
+            vm.map.centerAndZoom(data.points[0], 16);
             vm.map.panTo(data.points[0]);
             marker.setPosition(data.points[0]);
-            vm.timePoint = data.points[0];
-            console.log(data.points[0], vm.timePoint);
             vm.map.addOverlay(marker);
             vm.previousMarker = marker;
-            this.searchNearby();
           }
         })
+        vm.searchNearby();
         var map = vm.map;
-        vm.map.centerAndZoom(locationPoint, 19);
-        console.log('GPS定位：您的位置是 ' + resp.coords.longitude + ',' + resp.coords.latitude,resp);
       }
       if(this.sbuscription === null || this.sbuscription === undefined)
       {
         this.watchPosition();
       }
     }).catch(e => {
-      console.log('Error happened when get current position.');
+      console.log(e);
     });
     //记录实时定位时保存先前一个marker点，以便更新时删除前一个marker点
     this.map.enableScrollWheelZoom(true);  //启动滚轮放大缩小，默认禁用
@@ -219,15 +285,13 @@ export class MapPage implements OnInit {
       //实时监控位置的移动
       var vm = this;
       this.sbuscription = this.geolocation.watchPosition();
-      this.sbuscription.subscribe((data) => { // data can be a set of coordinates,or an error(if an error occurred). 
+      this.subscription = this.sbuscription.subscribe((data) => { // data can be a set of coordinates,or an error(if an error occurred). 
         // data.coords.latitude 
         // data.coords.longitude
-        console.log(data.coords);
         if (data.coords !== undefined) {
           let point = new BMap.Point(data.coords.longitude,data.coords.latitude);
           let convertor = new BMap.Convertor();
           let pointArr = [];
-          console.log(data,"实时定位");
           pointArr.push(point);
           convertor.translate(pointArr, 1, 5, (data) => {
             if (data.status === 0) {
@@ -236,7 +300,6 @@ export class MapPage implements OnInit {
               var map = vm.map;
               var local = new BMap.LocalSearch(vm.map, {
                 renderOptions: { map: vm.map, autoViewport: true, selectFirstResult: false }, onSearchComplete: function (result) {
-                  console.log(result);
                   let location;
                   for (let i = 0; i < result.Ar.length; i++) {
                     for (let key in result.Ar[i]) {
@@ -266,7 +329,6 @@ export class MapPage implements OnInit {
     //获取点击的位置
     getClickPostion(){
       this.map.addEventListener("click",function(e){
-        console.log(e);
         this.getClickPostion = e;
       })
     }
@@ -276,7 +338,10 @@ export class MapPage implements OnInit {
       // this.getClickPostion();
     }
     ionViewDidLeave(){
-      // this.sbuscription.unsubscribe();
+      if ('unsubscribe' in this.subscription)
+      {
+        this.subscription.unsubscribe();
+      }
     }
 
 }

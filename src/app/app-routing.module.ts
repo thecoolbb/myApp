@@ -4,7 +4,8 @@ import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
 //配置路由
 const routes: Routes = [
   { path: '', loadChildren: './tabs/tabs.module#TabsPageModule' },
-  { path: 'map', loadChildren: './map/map.module#MapPageModule' }
+  { path: 'map', loadChildren: './map/map.module#MapPageModule' },
+  { path: 'login', loadChildren: './tab1/tab1.module#Tab1PageModule'}
 ];
 @NgModule({
   imports: [
